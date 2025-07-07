@@ -7,7 +7,7 @@ authors = [
 ]
 readme = "README.md"
 license = { text = "MIT" }
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.13"
 keywords = ["fastapi", "taiwan", "address", "gis", "tainan"]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -31,7 +31,7 @@ dependencies = [
     
     # 資料庫相關
     "sqlalchemy==2.0.23",
-    "psycopg2-binary==2.9.9",
+    "psycopg[binary,pool]>=3.1.0",
     "alembic==1.12.1",
     "geoalchemy2==0.14.2",
     

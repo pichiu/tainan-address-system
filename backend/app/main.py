@@ -11,7 +11,7 @@ from contextlib import asynccontextmanager
 
 from app.core.config import settings
 from app.core.database import engine, create_tables
-from app.api.endpoints import addresses, health
+from app.api.endpoints import address, health
 
 # 設定日誌
 logging.basicConfig(level=logging.INFO)
@@ -87,7 +87,7 @@ app.include_router(
 )
 
 app.include_router(
-    addresses.router,
+    address.router,
     prefix=f"{settings.API_V1_STR}",
     tags=["地址查詢"]
 )

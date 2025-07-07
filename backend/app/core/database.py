@@ -4,7 +4,7 @@
 from sqlalchemy import create_engine, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.pool import QueuePool
 import logging
 
 from app.core.config import settings, get_database_url
@@ -12,9 +12,14 @@ from app.core.config import settings, get_database_url
 logger = logging.getLogger(__name__)
 
 # 建立資料庫引擎
+# 將 postgresql:// 轉換為 postgresql+psycopg://
+database_url = get_database_url()
+if database_url.startswith('postgresql://'):
+    database_url = database_url.replace('postgresql://', 'postgresql+psycopg://')
+
 engine = create_engine(
-    get_database_url(),
-    poolclass=StaticPool,
+    database_url,
+    poolclass=QueuePool,
     pool_size=settings.DB_POOL_SIZE,
     max_overflow=settings.DB_MAX_OVERFLOW,
     pool_timeout=settings.DB_POOL_TIMEOUT,
@@ -102,18 +107,27 @@ async def create_tables():
             except Exception as e:
                 logger.warning(f"無法建立空間索引: {e}")
             
-            # 建立全文搜尋索引（如果支援中文）
+            # 建立全文搜尋索引（使用預設配置）
             try:
                 indexes.append(
-                    "CREATE INDEX IF NOT EXISTS idx_addresses_full_text ON addresses USING GIN(to_tsvector('chinese', full_address));"
+                    "CREATE INDEX IF NOT EXISTS idx_addresses_full_text ON addresses USING GIN(to_tsvector('simple', full_address));"
                 )
                 logger.info("全文搜尋索引已建立")
             except Exception as e:
                 logger.warning(f"無法建立全文搜尋索引: {e}")
-                # 使用簡單的文字索引作為替代
-                indexes.append(
-                    "CREATE INDEX IF NOT EXISTS idx_addresses_text_simple ON addresses USING GIN(full_address gin_trgm_ops);"
-                )
+                # 使用三字組索引作為替代
+                try:
+                    conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm;"))
+                    indexes.append(
+                        "CREATE INDEX IF NOT EXISTS idx_addresses_text_simple ON addresses USING GIN(full_address gin_trgm_ops);"
+                    )
+                    logger.info("三字組索引已建立")
+                except Exception as e2:
+                    logger.warning(f"無法建立三字組索引: {e2}")
+                    # 使用 B-tree 索引作為最後替代
+                    indexes.append(
+                        "CREATE INDEX IF NOT EXISTS idx_addresses_text_btree ON addresses(full_address text_pattern_ops);"
+                    )
             
             # 執行所有索引建立
             for index_sql in indexes:
@@ -125,7 +139,7 @@ async def create_tables():
             # 建立觸發器更新 full_address
             create_trigger = text("""
                 CREATE OR REPLACE FUNCTION update_full_address()
-                RETURNS TRIGGER AS $
+                RETURNS TRIGGER AS $$
                 BEGIN
                     NEW.full_address := CONCAT(
                         COALESCE(NEW.street, ''),
@@ -143,7 +157,7 @@ async def create_tables():
                     NEW.updated_at := NOW();
                     RETURN NEW;
                 END;
-                $ LANGUAGE plpgsql;
+                $$ LANGUAGE plpgsql;
                 
                 DROP TRIGGER IF EXISTS trigger_update_full_address ON addresses;
                 CREATE TRIGGER trigger_update_full_address

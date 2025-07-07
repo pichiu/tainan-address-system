@@ -5,7 +5,8 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from datetime import datetime
 
-from app.core.database import get_db, check_database_connection, get_database_stats
+from app.core.database import check_database_connection, get_database_stats
+from app.api.deps import get_db
 from app.core.config import settings
 from app.schemas.address import HealthCheck, APIResponse
 
