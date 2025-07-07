@@ -1,0 +1,66 @@
+# Pre-commit hooks configuration
+repos:
+  # 基本程式碼品質檢查
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+      - id: check-merge-conflict
+      - id: check-json
+      - id: check-toml
+      - id: check-docstring-first
+      - id: debug-statements
+
+  # Python 程式碼格式化
+  - repo: https://github.com/psf/black
+    rev: 23.12.0
+    hooks:
+      - id: black
+        language_version: python3.11
+
+  # Import 排序
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        args: ["--profile", "black"]
+
+  # Flake8 linting
+  - repo: https://github.com/pycqa/flake8
+    rev: 6.1.0
+    hooks:
+      - id: flake8
+        additional_dependencies: [flake8-docstrings]
+        args: ['--max-line-length=88', '--extend-ignore=E203,W503']
+
+  # Type checking
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.7.1
+    hooks:
+      - id: mypy
+        additional_dependencies: [types-all]
+        exclude: ^(alembic/|tests/)
+
+  # Security checks
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.5
+    hooks:
+      - id: bandit
+        args: ['-r', '.', '-x', 'tests,alembic']
+
+  # UV dependency management
+  - repo: local
+    hooks:
+      - id: uv-lock-check
+        name: Check uv.lock is up to date
+        entry: uv
+        args: [lock, --check]
+        language: system
+        files: pyproject.toml
+        pass_filenames: false
+
+default_language_version:
+  python: python3.11

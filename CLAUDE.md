@@ -10,23 +10,29 @@ This is a full-stack Tainan City address coordinate query system built with Fast
 
 ### Backend (FastAPI)
 ```bash
-# Setup virtual environment
-cd backend
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+# Install UV (modern Python package manager)
+curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Install dependencies
-pip install -r requirements.txt
+# Setup project
+cd backend
+uv sync  # Install all dependencies from pyproject.toml
 
 # Run development server
-uvicorn app.main:app --reload
+make run
+# or: uv run uvicorn app.main:app --reload
 
 # Data import
-python -m app.utils.data_import /path/to/data.csv --clear
-python -m app.utils.data_import /path/to/data.csv --chunk-size 5000
+make import-data file=/path/to/data.csv args="--clear"
+# or: uv run python -m app.utils.data_import /path/to/data.csv --clear
 
 # Run tests
-pytest
+make test
+# or: uv run pytest
+
+# Code quality
+make format  # Format code with black, isort
+make lint    # Run flake8, mypy
+make check   # Run all checks
 ```
 
 ### Frontend (Next.js)
@@ -136,11 +142,20 @@ Required environment variables:
 
 ## Performance Considerations
 
+- **UV Package Management**: 10-100x faster than pip for dependency installation and resolution
 - **Database Indexing**: Composite indexes on frequently queried columns
 - **Statistics Caching**: Pre-computed statistics in separate table
 - **Batch Processing**: Configurable chunk sizes for large dataset imports
 - **Spatial Queries**: PostGIS for efficient geographic queries with fallback to Haversine formula
 - **Pagination**: All search endpoints support pagination
+
+## Modern Python Development
+
+- **UV Package Manager**: Lightning-fast Python package installer and resolver
+- **pyproject.toml**: Modern Python project configuration (replaces requirements.txt)
+- **Pre-commit Hooks**: Automated code quality checks before commits
+- **Makefile**: Simplified development commands for common tasks
+- **Multi-stage Docker**: Optimized container builds with development and production targets
 
 ## Common Development Patterns
 
@@ -149,3 +164,4 @@ Required environment variables:
 - **Logging**: Structured logging throughout the application
 - **CORS**: Configured for local development and production environments
 - **Database Transactions**: Proper transaction handling in data import
+- **Service Layer**: Clean separation between API endpoints and business logic
