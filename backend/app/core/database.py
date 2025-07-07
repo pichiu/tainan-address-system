@@ -29,13 +29,7 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 
-def get_db():
-    """取得資料庫 session"""
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+# get_db 函數已移至 app.api.deps 模組
 
 
 async def create_tables():

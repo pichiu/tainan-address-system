@@ -7,12 +7,13 @@ from sqlalchemy import text, func
 from typing import List, Optional
 import math
 
-from app.core.database import get_db
+from app.api.deps import get_db
 from app.core.config import settings
 from app.schemas.address import (
     Address, AddressSummary, NeighborhoodDetail, 
     APIResponse, PaginationInfo, SearchParams, GeoSearchParams
 )
+from app.services.address_service import AddressService
 
 router = APIRouter()
 
@@ -21,12 +22,8 @@ router = APIRouter()
 async def get_districts(db: Session = Depends(get_db)):
     """取得所有區的列表"""
     try:
-        result = db.execute(text("""
-            SELECT DISTINCT district
-            FROM addresses 
-            ORDER BY district
-        """))
-        districts = [row[0] for row in result]
+        service = AddressService(db)
+        districts = service.get_districts()
         
         return APIResponse(
             success=True,
@@ -44,25 +41,16 @@ async def get_villages(
 ):
     """取得指定區的所有村里"""
     try:
-        result = db.execute(text("""
-            SELECT DISTINCT village 
-            FROM addresses 
-            WHERE district = :district 
-            ORDER BY village
-        """), {"district": district})
-        
-        villages = [row[0] for row in result]
-        
-        if not villages:
-            raise HTTPException(status_code=404, detail=f"區 '{district}' 不存在或無資料")
+        service = AddressService(db)
+        villages = service.get_villages(district)
         
         return APIResponse(
             success=True,
             data=villages,
             message=f"成功取得 {district} 的 {len(villages)} 個村里"
         )
-    except HTTPException:
-        raise
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"取得村里列表失敗: {str(e)}")
 
@@ -277,87 +265,22 @@ async def search_addresses(
 ):
     """靈活搜尋地址"""
     try:
-        # 建立查詢條件
-        where_conditions = []
-        params = {}
-        
-        if district:
-            where_conditions.append("district = :district")
-            params["district"] = district
-            
-        if village:
-            where_conditions.append("village = :village")
-            params["village"] = village
-            
-        if street:
-            where_conditions.append("(street ILIKE :street OR area ILIKE :street)")
-            params["street"] = f"%{street}%"
-            
-        if q:
-            where_conditions.append("full_address ILIKE :q")
-            params["q"] = f"%{q}%"
-        
-        where_clause = " AND ".join(where_conditions) if where_conditions else "1=1"
-        
-        # 計算總數
-        count_query = text(f"""
-            SELECT COUNT(*) 
-            FROM addresses 
-            WHERE {where_clause}
-        """)
-        total = db.execute(count_query, params).scalar()
-        
-        # 計算分頁
-        offset = (page - 1) * per_page
-        total_pages = math.ceil(total / per_page)
-        
-        # 查詢資料
-        data_query = text(f"""
-            SELECT 
-                id, district, village, neighborhood, street, area, lane, alley, number,
-                x_coord, y_coord, full_address, created_at, updated_at
-            FROM addresses 
-            WHERE {where_clause}
-            ORDER BY district, village, neighborhood, id
-            LIMIT :limit OFFSET :offset
-        """)
-        
-        params.update({"limit": per_page, "offset": offset})
-        result = db.execute(data_query, params)
-        
-        addresses = []
-        for row in result:
-            address = Address(
-                id=row[0],
-                district=row[1],
-                village=row[2],
-                neighborhood=row[3],
-                street=row[4],
-                area=row[5],
-                lane=row[6],
-                alley=row[7],
-                number=row[8],
-                x_coord=float(row[9]) if row[9] else None,
-                y_coord=float(row[10]) if row[10] else None,
-                full_address=row[11],
-                created_at=row[12],
-                updated_at=row[13]
-            )
-            addresses.append(address)
-        
-        pagination = PaginationInfo(
+        service = AddressService(db)
+        search_params = SearchParams(
+            q=q,
+            district=district,
+            village=village,
+            street=street,
             page=page,
-            per_page=per_page,
-            total=total,
-            pages=total_pages,
-            has_prev=page > 1,
-            has_next=page < total_pages
+            per_page=per_page
         )
+        
+        addresses, pagination = service.search_addresses(search_params)
         
         return APIResponse(
             success=True,
-            data=[addr.model_dump() for addr in addresses],
-            message=f"搜尋到 {total} 筆地址資料",
+            data=addresses,
+            message=f"搜尋到 {pagination.total} 筆地址資料",
             pagination=pagination
         )
     
