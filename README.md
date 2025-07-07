@@ -26,6 +26,7 @@
 
 ### 後端技術
 - **Framework**：FastAPI 0.104+
+- **包管理**：UV (現代 Python 包管理器)
 - **資料庫**：PostgreSQL 15+ with PostGIS
 - **ORM**：SQLAlchemy 2.0+
 - **驗證**：Pydantic 2.0+
@@ -50,6 +51,7 @@
 
 - Node.js 18+
 - Python 3.11+
+- [UV](https://github.com/astral-sh/uv) (現代 Python 包管理器) 或 pip
 - PostgreSQL 15+ (帶 PostGIS 擴展)
 - Git
 
@@ -100,6 +102,25 @@ docker-compose logs -f
 
 #### 後端設定
 
+**使用 UV (推薦)**
+```bash
+cd backend
+
+# 安裝 UV (如果尚未安裝)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# 安裝依賴
+uv sync
+
+# 建立資料庫
+createdb tainan_addresses
+
+# 啟動服務
+make run
+# 或手動執行: uv run uvicorn app.main:app --reload
+```
+
+**使用傳統方式**
 ```bash
 cd backend
 
@@ -140,6 +161,21 @@ npm run dev
 
 ### 2. 執行匯入
 
+**使用 UV**
+```bash
+cd backend
+
+# 匯入資料（會清空現有資料）
+make import-data file=/path/to/your/data.csv args="--clear"
+
+# 分批匯入（不清空現有資料）
+make import-data file=/path/to/your/data.csv args="--chunk-size 5000"
+
+# 或手動執行
+uv run python -m app.utils.data_import /path/to/your/data.csv --clear
+```
+
+**使用傳統方式**
 ```bash
 cd backend
 
@@ -215,8 +251,12 @@ tainan-address-system/
 │   │   ├── schemas/            # API 模型
 │   │   ├── services/           # 業務邏輯
 │   │   └── utils/              # 工具函數
-│   ├── requirements.txt
-│   └── Dockerfile
+│   ├── alembic/                # 資料庫遷移
+│   ├── pyproject.toml          # Python 專案配置 (UV)
+│   ├── uv.lock                 # 依賴鎖定檔案
+│   ├── requirements.txt        # 傳統依賴檔案 (向後相容)
+│   ├── Makefile                # 開發指令
+│   └── Dockerfile              # 容器配置
 ├── frontend/                   # Next.js 前端
 │   ├── components/             # React 元件
 │   ├── hooks/                  # 自訂 Hooks
@@ -227,6 +267,7 @@ tainan-address-system/
 ├── docs/                       # 文檔
 ├── data/                       # 資料檔案
 ├── docker-compose.yml          # 開發環境
+├── .env.example                # 環境變數範例
 └── README.md
 ```
 
@@ -246,6 +287,14 @@ tainan-address-system/
 
 ## 開發指南
 
+### 現代化開發工具
+
+本專案使用 **UV** 作為 Python 包管理器，帶來以下優勢：
+- **⚡ 極速安裝**：比 pip 快 10-100 倍
+- **🔒 確定性建置**：uv.lock 確保一致的依賴版本
+- **📦 現代配置**：pyproject.toml 取代 requirements.txt
+- **🛠️ 統一工具鏈**：安裝、解析、虛擬環境一體化
+
 ### 程式碼規範
 
 - **Python**：遵循 PEP 8，使用 Black 格式化
@@ -254,24 +303,45 @@ tainan-address-system/
 
 ### 測試
 
+**後端測試**
 ```bash
-# 後端測試
 cd backend
-pytest
 
-# 前端測試
+# 使用 UV
+make test
+# 或: uv run pytest
+
+# 使用傳統方式
+pytest
+```
+
+**前端測試**
+```bash
 cd frontend
 npm test
 ```
 
 ### 程式碼格式化
 
+**Python (使用 UV)**
 ```bash
-# Python
-black backend/app
-isort backend/app
+cd backend
+make format  # 執行 black 和 isort
+make lint    # 執行 flake8 和 mypy
+make check   # 執行所有檢查
+```
 
-# TypeScript
+**Python (傳統方式)**
+```bash
+cd backend
+black app/
+isort app/
+flake8 app/
+mypy app/
+```
+
+**TypeScript**
+```bash
 cd frontend
 npm run lint:fix
 ```
